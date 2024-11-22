@@ -1,6 +1,8 @@
 package com.atividade9.APIrestful.service;
 
+import com.atividade9.APIrestful.Cliente;
 import com.atividade9.APIrestful.Pedido;
+import com.atividade9.APIrestful.Produto;
 import com.atividade9.APIrestful.repository.ClienteRepository;
 import com.atividade9.APIrestful.repository.PedidoRepository;
 import com.atividade9.APIrestful.repository.ProdutoRepository;
@@ -8,11 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PedidoService {
+
     @Autowired
-    private PedidoRepository repository;
+    private PedidoRepository pedidoRepository;
 
     @Autowired
     private ClienteRepository clienteRepository;
@@ -20,38 +24,54 @@ public class PedidoService {
     @Autowired
     private ProdutoRepository produtoRepository;
 
+    // Método para salvar um pedido
     public Pedido salvar(Pedido pedido) {
-        if (pedido.getIdCliente() == null || !clienteRepository.existsById(pedido.getIdCliente())) {
-            throw new IllegalArgumentException("Cliente inválido");
-        }
+        // Valida se o cliente existe
+        Cliente cliente = clienteRepository.findById(pedido.getCliente().getId())
+                .orElseThrow(() -> new RuntimeException("Cliente não encontrado com ID: " + pedido.getCliente().getId()));
 
-        if (pedido.getIdsProdutos().isEmpty()) {
-            throw new IllegalArgumentException("Pedido deve conter pelo menos um produto");
-        }
+        // Valida se os produtos e suas quantidades existem
+        List<Produto> produtos = pedido.getProdutos().stream()
+                .map(produto -> produtoRepository.findById(produto.getId())
+                        .orElseThrow(() -> new RuntimeException("Produto não encontrado com ID: " + produto.getId())))
+                .collect(Collectors.toList());
 
-        for (Long idProduto : pedido.getIdsProdutos()) {
-            if (!produtoRepository.existsById(idProduto)) {
-                throw new IllegalArgumentException("Produto inválido no pedido: " + idProduto);
-            }
-        }
+        // Aqui associamos os produtos e as quantidades de forma correta
+        pedido.setCliente(cliente);
+        pedido.setProdutos(produtos);
 
-        return repository.save(pedido);
+        // Salva o pedido
+        return pedidoRepository.save(pedido);
     }
 
+
+    // Método para listar todos os pedidos
     public List<Pedido> listarTodos() {
-        return repository.findAll();
+        return pedidoRepository.findAll();
     }
 
+    // Método para buscar pedido por ID
     public Pedido listarPorId(Long id) {
-        return repository.findById(id).orElse(null);
+        return pedidoRepository.findById(id).orElse(null);
     }
 
+    // Método para listar pedidos por cliente
     public List<Pedido> listarPorIdCliente(Long idCliente) {
-        return repository.findByIdCliente(idCliente);
+        return pedidoRepository.findAll().stream()
+                .filter(pedido -> pedido.getCliente().getId().equals(idCliente))
+                .collect(Collectors.toList());
     }
 
+    // Método para listar pedidos por produto
     public List<Pedido> listarPorIdProduto(Long idProduto) {
-        return repository.findByIdsProdutos(idProduto);
+        return pedidoRepository.findAll().stream()
+                .filter(pedido -> pedido.getProdutos().stream()
+                        .anyMatch(produto -> produto.getId().equals(idProduto)))
+                .collect(Collectors.toList());
     }
+    
+
+
 }
 
+ 
